@@ -1,0 +1,109 @@
+DBIx::Simple::Class - Advanced object construction for DBIx::Simple!
+
+INSTALLATION
+
+To install this module, run the following commands:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+DESCRIPTION
+
+This module is writen to replace most of the abstraction stuff from the base 
+model class in the MYDLjE project on github, but can be used independently as well. 
+
+The class provides some useful methods which simplify representing rows from 
+tables as Perl objects. It is not intended to be a full featured ORM at all.
+It does not support relational mapping. This is left to the developer
+It is rather a database row abstraction. If you have to do complicated  SQL queries use directly 
+L<DBIx::Simple/query> method.  
+Last but not least, this module has no dependencies besides DBIx::Simple.
+
+SYNOPSIS
+
+  
+  #1. In your class representing a template for a row in a database table or view
+  package My::Model::AdminUser;
+  use base DBIx::Simple::Class;
+
+  #sql to be used as table
+  sub TABLE { 'users' }
+  #alternative syntax: use constant TABLE =>'users';
+  
+  sub COLUMNS {[qw(id group_id login_name login_password first_name last_name)]}
+
+  #used to validate params to field-setters
+  my $_CHECKS = {
+    id => { allow => qr/^\d+$/x },
+    group_id => { allow => qr/^\d+$/x },
+    login_name => {required => 1, allow => qr/^\p{IsAlnum}{4,12}$/x},
+    #...
+  };
+  sub CHECKS{$_CHECKS}
+  1;#end of My::Model::AdminUser
+
+  #2. In as startup script or subroutine
+  $app->{dbix} = DBIx::Simple->connect(...);
+  #and/or
+  DBIx::Simple::Class->dbix( $app->{dbix} );
+
+  #3. usage 
+  use My::Model::AdminUser;
+  my $user = $dbix->select(
+    My::Model::AdminUser->TABLE,
+    '*',
+    {login_name => 'fred'}
+  )->object('My::Model::AdminUser')
+  $user->first_name('Fred')->last_name('Flintstone');
+  $user->save; #update user
+  #....
+  my $user = My::Model::AdminUser->new(
+    login_name => 'fred',
+    first_name => 'Fred',
+    last_name =>'Flintstone'
+  );
+  $user->save();#insert new user
+  print "new user has id:".$user->id;
+  #...
+  #select many
+  my @admins = $dbix->select(
+    My::Model::AdminUser->TABLE,
+    My::Model::AdminUser->COLUMNS,
+    My::Model::AdminUser->WHERE
+  )->objects(My::Model::AdminUser);
+
+
+SUPPORT AND DOCUMENTATION
+
+After installing, you can find documentation for this module with the
+perldoc command.
+
+    perldoc DBIx::Simple::Class
+
+You can also look for information at:
+
+    The project wiki
+        https://github.com/kberov/DBIx--Simple--Class/wiki
+
+    AnnoCPAN, Annotated CPAN documentation
+        http://annocpan.org/dist/DBIx-Simple-Class
+
+    CPAN Ratings
+        http://cpanratings.perl.org/d/DBIx-Simple-Class
+
+    Search CPAN
+        http://search.cpan.org/dist/DBIx-Simple-Class/
+
+
+LICENSE AND COPYRIGHT
+
+Copyright (C) 2012 Красимир Беров
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of either: the GNU General Public License as published
+by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
+
