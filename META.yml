@@ -20,4 +20,4 @@ no_index:
 requires:
   DBIx::Simple: 1.33
   Test::More: 0
-version: 0.52
+version: 0.53
