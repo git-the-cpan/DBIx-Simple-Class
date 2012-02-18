@@ -30,7 +30,7 @@ like((eval { $DSC->dbix('') }, $@), qr/not instantiated/);
 isa_ok(ref($DSC->dbix($dbix)), 'DBIx::Simple');
 isa_ok(ref($DSC->dbix),        'DBIx::Simple');
 
-like((eval { $DSC->TABLE },   $@), qr/tablename for your class/);
+like((eval { $DSC->TABLE },   $@), qr/table-name for your class/);
 like((eval { $DSC->COLUMNS }, $@), qr/fields for your class/);
 like((eval { $DSC->CHECKS },  $@), qr/define your CHECKS subroutine/);
 is(ref($DSC->WHERE), 'HASH');
@@ -199,7 +199,7 @@ like(
 );
 delete My::Group->COLUMNS->[-1];
 
-is_deeply(My::Group->COLUMNS, [qw(id group_name)]);
+is_deeply(My::Group->COLUMNS, [qw(id group_name)], 'COLUMNS are valid now - ok');
 
 like(
   (eval { My::Group->new(description => 'tralala') }, $@),
@@ -214,9 +214,9 @@ like(
 );
 ok(My::Group->can('id'),         'can id');
 ok(My::Group->can('group_name'), 'can group_name');
-ok($group = My::Group->new);
-ok($group->id(1));
-ok($group->data('lala' => 1));
+ok($group = My::Group->new, 'My::Group->new ok');
+ok($group->id(1), '$group->id(1) ok');
+ok($group->data('lala' => 1), 'can not lala ok');
 is_deeply($group->data(), {id => 1}, '"There is not such field lala" ok');
 My::Group->DEBUG(0);
 
@@ -310,5 +310,69 @@ is(
   My::Collision->query('select * from collision where id=1')->column_data,
   'alias() updates ok2'
 );
-done_testing();
 
+#test getting by primary key
+My::Collision->new(data => 'second id')->save;
+is(My::Collision->select_by_pk(2)->id, 2, 'select_by_pk ok');
+is(My::Collision->select_by_pk(2)->id, 2, 'select_by_pk ok from $SQL_CACHE');
+
+#testing SQL
+my $site_group = My::Group->new(group_name => 'SiteUsers');
+$site_group->save;
+
+{
+
+  package My::SiteUser;
+  use base qw(My::User);
+  sub WHERE { {disabled => 0, group_id => 2} }
+
+  #merge with parent $SQL
+  __PACKAGE__->SQL(GUEST_USER => 'SELECT * FROM users WHERE login_name = \'guest\'');
+
+  1;
+}
+my $SCLASS = 'My::SiteUser';
+isa_ok($SCLASS->SQL(FOO => 'SELECT * FROM foo'), 'HASH', 'SQL(FOO=>...) is setting ok');
+is(
+  $SCLASS->SQL(FOO => 'SELECT * FROM foo') && $SCLASS->SQL('FOO'),
+  'SELECT * FROM foo',
+  'SQL(FOO=>...) is setting ok2'
+);
+like($SCLASS->SQL('SELECT'),       qr/FROM\s+users/x,     'SQL(SELECT) is getting ok');
+like(My::Collision->SQL('SELECT'), qr/FROM\s+collision/x, 'SQL(SELEC) is getting ok2');
+like(
+  $SCLASS->SQL('GUEST_USER'),
+  qr/SELECT \* FROM users/,
+  'SQL(GUEST_USER) is getting ok'
+);
+
+like(
+  (eval { $DSC->SQL('SELECT') } || $@),
+  qr/fields for your class/,
+  '$DSC->SQL(SELECT) croaks ok'
+);
+
+$SCLASS->new(login_name => 'guest', login_password => time . 'QW')
+  ->group_id($site_group->id)->save;
+
+my $guest = $SCLASS->query($SCLASS->SQL('SELECT') . ' AND id=?', 1);
+$guest = $SCLASS->select_by_pk(1);
+like(
+  (eval { $guest->SQL('SELECT') } || $@),
+  qr/This is a class method/,
+  '$guest->SQL(SELECT) croaks ok'
+);
+
+is(
+  $SCLASS->SQL('BY_PK'),
+  $DSC->_SQL_CACHE->{$SCLASS}{BY_PK},
+  'SQL(BY_PK) is getting ok'
+);
+
+like(
+  $SCLASS->SQL('SELECT'),
+  qr/SELECT.+FROM\s+users\sWHERE\sdisabled.+group_id='2'/x,
+  'SELECT generated ok'
+);
+
+done_testing();
