@@ -22,7 +22,7 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : 0
+            "DBD::SQLite" : "1.29"
          }
       },
       "configure" : {
@@ -38,5 +38,5 @@
       }
    },
    "release_status" : "stable",
-   "version" : "0.56"
+   "version" : "0.57"
 }
