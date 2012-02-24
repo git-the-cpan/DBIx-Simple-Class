@@ -13,7 +13,9 @@ BEGIN {
   eval { DBD::SQLite->VERSION >= 1 }
     or plan skip_all => 'DBD::SQLite >= 1.00 required';
 }
+local $Params::Check::VERBOSE = 0;
 use DBIx::Simple::Class;
+
 my $DSC = 'DBIx::Simple::Class';
 
 # In memory database! No file permission troubles, no I/O slowness.
@@ -114,15 +116,11 @@ like(
 
 ok($user = My::User->new(login_password => $password));
 
-like(
-  (eval { $user->_make_field_attrs() }, $@),
-  qr/Call this method as/,
-  '_make_field_attrs() ok'
-);
+like((eval { $user->BUILD() }, $@), qr/Call this method as/, 'BUILD() ok');
 is(
-  My::User->_make_field_attrs(),
+  My::User->BUILD(),
   $DSC->_attributes_made->{'My::User'},
-  'if (eval $code) in _make_field_attrs() ok'
+  'if (eval $code) in BUILD() ok'
 );
 isa_ok(ref($user), $DSC);
 
@@ -193,7 +191,7 @@ like(
 
 delete My::Group->COLUMNS->[-1];
 like(
-  (eval { My::Group->_make_field_attrs() }, $@),
+  (eval { My::Group->BUILD() }, $@),
   qr/Illegal declaration of subroutine/,
   '"Illegal declaration of subroutine" ok'
 );
@@ -216,8 +214,8 @@ ok(My::Group->can('group_name'), 'can group_name');
 ok($group = My::Group->new, 'My::Group->new ok');
 ok($group->id(1), '$group->id(1) ok');
 ok($group->data('lala' => 1), 'can not lala ok');
-is_deeply($group->data(), {id => 1}, '"There is not such field lala" ok');
 My::Group->DEBUG(0);
+is_deeply($group->data(), {id => 1}, '"There is not such field lala" ok');
 
 #insert
 My::Group->CHECKS->{id}         = {allow => qr/^\d+$/};
@@ -247,8 +245,7 @@ is($user->save,                           1, 'user inserted ok');
 
 #update dies
 $g2->{SQL_UPDATE} = 'UPDATE xx "BOOM';
-like((eval { $g2->update }, $@),
-  qr/prepare\sfailed/x, '"prepare failed" croaks ok');
+like((eval { $g2->update }, $@), qr/prepare\sfailed/x, '"prepare failed" croaks ok');
 delete $DSC->_attributes_made->{'My::User'};
 ok(
   $user =
@@ -410,6 +407,11 @@ my @site_users =
 is_deeply($site_users, \@site_users, 'new_from_dbix_simple wantarray ok');
 
 #LIMIT
+like(
+  (eval { $DSC->SQL('_LIMIT') } || $@),
+  qr/Named query '_LIMIT' is not ment/,
+  '$DSC->SQL(_LIMIT) croaks ok'
+);
 $site_users = $dbix->query(
   'SELECT * FROM users WHERE group_id=? ORDER BY id ASC ' . $SCLASS->SQL_LIMIT(2),
   $site_group->id)->objects($SCLASS);
@@ -420,6 +422,109 @@ $site_users = $dbix->query(
 is(scalar @$site_users, 2, 'OFFSET offsets ok');
 is_deeply($site_users, [$site_users[-2], $site_users[-1]], 'OFFSET really offsets ok');
 
+
+#QUOTE_IDENTIFIERS
+is_deeply(
+  $SCLASS->_UNQUOTED,
+  { 'WHERE' => {
+      'disabled' => 0,
+      'group_id' => 3
+    },
+    'COLUMNS' => ['id', 'group_id', 'login_name', 'login_password', 'disabled'],
+    'TABLE'   => 'users'
+  },
+  '_UNQUOTED ok'
+);
+
+my $my_groups_table = <<"T";
+CREATE TABLE "my groups"(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  "group" VARCHAR(12),
+  "is' enabled" INT DEFAULT 0
+  )
+T
+
+$dbix->query($my_groups_table);
+
+
+{
+
+  package MyGoups;
+  use base 'DBIx::Simple::Class';
+  sub TABLE {'my groups'}                            #problem
+  sub COLUMNS { ['id', 'group', 'is\' enabled'] }    #problem
+
+  sub ALIASES {
+    { 'is\' enabled' => 'is_enabled', }
+  }
+
+  sub WHERE { {'is enabled' => 1} }
+
+  sub CHECKS {
+    {
+      'is\' enabled' => {allow    => qr/^[01]$/},
+        id           => {allow    => qr/^\d+$/x},
+        group        => {required => 1, allow => qr/^\w+$/}
+    }
+  }
+  __PACKAGE__->QUOTE_IDENTIFIERS(1);    #no problem now
+  __PACKAGE__->BUILD;
+}
+
+is(MyGoups->TABLE, '"my groups"', 'table IDENTIFIER quoted ok');
+is(eval { MyGoups->new('is\' enabled' => 1, group => 'name1')->insert }
+    || $@ => 1 => 'quoteD_identifier inserts ok');
+is(eval { MyGoups->new('is\' enabled' => 1, group => 'name2')->save } || $@,
+  2, 'quoteD_identifier inserts ok2');
+
+isa_ok(eval { $g2 = MyGoups->find(2) }
+    || $@ => MyGoups => 'quoteD_identifier finds ok');
+is_deeply(
+  $g2->data,
+  { 'group'        => 'name2',
+    'is\' enabled' => 1,
+    'id'           => 2
+  },
+  'quoteD_identifier data ok'
+);
+
+is(eval { $g2->group('name_second')->update } || $@, 1,
+  'quoteD_identifier updates ok2');
+
+is_deeply(
+  $g2->data,
+  { 'group'        => 'name_second',
+    'is\' enabled' => 1,
+    'id'           => 2
+  },
+  'quoteD_identifier data after update ok'
+);
+is_deeply(
+  MyGoups->find(2)->data,
+  { 'group'        => 'name_second',
+    'is\' enabled' => 1,
+    'id'           => 2
+  },
+  'quoteD_identifier updated data found ok'
+);
+
+#this will make it die since identifiers are already quoted and become double quoted
+delete $DSC->_attributes_made->{MyGoups};
+like(
+  eval { MyGoups->find(2) } || $@,
+  qr/'"""my\sgroups"""'/x,
+  'quoteD already identifier  ok'
+);
+
+like(eval { MyGoups->query(MyGoups->SQL('SELECT') . ' and id=?', 2) } || $@,
+  qr/'"""my\sgroups"""'/x, 'quoteD already identifier  ok2');
+if (eval { MyGoups->dbix->abstract }) {
+  like(eval { MyGoups->select(id => 2) } || $@,
+    qr/'"""my\sgroups"""'/x, 'quoteD already identifier  ok3');
+
+}
+
+#warn Dumper($g2->data);
 
 done_testing();
 
