@@ -8,7 +8,10 @@ ignore.txt
 t/00-load.t
 t/01-dbix-simple-class.t
 t/manifest.t
+t/boilerplate.t
 t/pod-coverage.t
 t/pod.t
+t/My.pm
+t/My/Groups.pm
 META.yml                                 Module YAML meta-data (added by MakeMaker)
 META.json                                Module JSON meta-data (added by MakeMaker)

@@ -8,7 +8,7 @@ use Params::Check;
 use List::Util qw(first);
 use Carp;
 
-our $VERSION = '0.61';
+our $VERSION = '0.62';
 $Params::Check::WARNINGS_FATAL = 1;
 $Params::Check::CALLER_DEPTH   = $Params::Check::CALLER_DEPTH + 1;
 
@@ -193,7 +193,7 @@ sub new {
 }
 
 sub new_from_dbix_simple {
-  $_[0]->BUILD() unless $_attributes_made->{$_[0]};
+  $_attributes_made->{$_[0]} || $_[0]->BUILD();
   if (wantarray) {
     return (map { bless {data => $_, new_from_dbix_simple => 1}, $_[0]; }
         @{$_[1]->{st}->{sth}->fetchall_arrayref({})});
@@ -210,25 +210,28 @@ sub new_from_dbix_simple {
 
 sub select {
   my ($class, $where) = _get_obj_args(@_);
-  $class->BUILD() unless $_attributes_made->{$class};
-  return $class->dbix->select($class->TABLE, $class->COLUMNS,
-    {%{$class->WHERE}, %$where})->object($class);
+  $class->new_from_dbix_simple(
+    $class->dbix->select($class->TABLE, $class->COLUMNS, {%{$class->WHERE}, %$where}));
 }
 
 sub query {
   my $class = shift;
-  $class->BUILD() unless $_attributes_made->{$class};
-  return $class->dbix->query(@_)->object($class);
+  $class->new_from_dbix_simple($class->dbix->query(@_));
 }
 
 sub select_by_pk {
   my ($class, $pk) = @_;
-  $class->BUILD() unless $_attributes_made->{$class};
-  return $class->dbix->query($SQL_CACHE->{$class}{SELECT_BY_PK}
-      || $class->SQL('SELECT_BY_PK'), $pk)->object($class);
+  return $class->new_from_dbix_simple(
+    $class->dbix->query(
+      $SQL_CACHE->{$class}{SELECT_BY_PK} || $class->SQL('SELECT_BY_PK'), $pk
+    )
+  );
 }
 
-*find = \&select_by_pk;
+{
+  no warnings qw(once);
+  *find = \&select_by_pk;
+}
 
 sub BUILD {
   my $class = shift;
@@ -264,7 +267,7 @@ SUB
 
   }
 
-  my $dbh = $class->dbh;  
+  my $dbh = $class->dbh;
   if ($class->QUOTE_IDENTIFIERS) {
     $code
       .= 'no warnings qw"redefine";'
@@ -298,12 +301,13 @@ SUB
     carp($class . " generated accessors: $/$code$/$@$/");
   }
   $dbh->{Callbacks}{prepare} = sub {
-        return unless $DEBUG;
-        my ($dbh, $query, $attrs) = @_;
-        my ($package, $filename, $line, $subroutine) = caller(1);
-        carp("SQL from $subroutine in $filename:$line :\n$query\n");
-        return;
-    };
+    return unless $DEBUG;
+    my ($dbh, $query, $attrs) = @_;
+    my ($package, $filename, $line, $subroutine) = caller(1);
+    carp("SQL from $subroutine in $filename:$line :\n$query\n");
+    return;
+  };
+
   #make sure we die loudly
   $dbh->{RaiseError} = 1;
   return $_attributes_made->{$class} = 1;
@@ -379,8 +383,6 @@ sub update {
   };
   return $dbh->prepare($self->{SQL_UPDATE})
     ->execute(values %{$self->{data}}, $self->{data}{$pk});
-
-  #return $self->dbix->query($SQL, (map { $self->{data}{$_} } @columns));
 }
 
 sub insert {
@@ -400,6 +402,7 @@ sub insert {
     ||= $self->dbh->last_insert_id(undef, undef, $self->TABLE, $pk);
 
 }
+
 
 1;
 
