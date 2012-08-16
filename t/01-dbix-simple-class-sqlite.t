@@ -1,4 +1,4 @@
-#!perl -T
+#!perl
 
 use 5.010;
 use strict;
@@ -14,6 +14,10 @@ BEGIN {
     or plan skip_all => 'DBD::SQLite >= 1.00 required';
 }
 local $Params::Check::VERBOSE = 0;
+#Suppress some warnings from DBIx::Simple::Class during tests.
+local $SIG{__WARN__} = sub{
+  warn $_[0] if $_[0] !~ /(generated accessors|is not such field)/;
+};
 
 use lib qw(t);
 use My;
@@ -59,10 +63,9 @@ $dbix->query($groups_table);
 $dbix->query($users_table);
 
 #$DSC->DEBUG(1);
-isa_ok(ref(My->dbix($dbix)), 'DBIx::Simple');
-is(My->dbix, $DSC->dbix, 'same instance');
+isa_ok(ref(My->dbix($dbix)),        'DBIx::Simple');
+is(My->dbix,$DSC->dbix,'same instance');
 isa_ok(ref(My::User->dbix),        'DBIx::Simple');
-isa_ok(ref(My::User->dbix($dbix)), 'DBIx::Simple');
 is(My::User->TABLE, 'users');
 is_deeply(My::User->COLUMNS, [qw(id group_id login_name login_password disabled)]);
 is(ref(My::User->WHERE), 'HASH');
@@ -154,7 +157,7 @@ My::Group->DEBUG(1);
 like(
   (eval { My::Group->new->data('lala') }, $@),
   qr/Can't locate object method "lala" via package "My::Group"/,
-  '"is not a valid key for" ok'
+  '"is not a valid key for" ok2'
 );
 ok(My::Group->can('id'),         'can id');
 ok(My::Group->can('group_name'), 'can group_name');
