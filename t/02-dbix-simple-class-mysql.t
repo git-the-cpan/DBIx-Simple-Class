@@ -4,7 +4,7 @@ use 5.010;
 use strict;
 use warnings;
 use utf8;
-use Test::More tests => 111;
+use Test::More;
 
 
 BEGIN {

@@ -1,5 +1,8 @@
 Revision history for DBIx::Simple::Class
 
+0.65    2012-08-18 03:50:55 EEST
+        - Fixed mysql tests:
+        You tried to plan twice at t/02-dbix-simple-class-mysql.t line 11.
 0.64    2012-08-17 02:02 EEST
         - Suppressed some warnings from DBIx::Simple::Class during tests.
         - Added mysql tests.

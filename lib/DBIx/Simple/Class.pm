@@ -8,7 +8,7 @@ use List::Util qw(first);
 use Carp;
 use DBIx::Simple;
 
-our $VERSION = '0.64';
+our $VERSION = '0.65';
 $Params::Check::WARNINGS_FATAL = 1;
 $Params::Check::CALLER_DEPTH   = $Params::Check::CALLER_DEPTH + 1;
 
