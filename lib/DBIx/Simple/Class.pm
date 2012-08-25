@@ -1,13 +1,12 @@
 package DBIx::Simple::Class;
-
 use 5.10.1;
 use strict;
 use warnings;
-use Params::Check;
 use Carp;
+use Params::Check;
 use DBIx::Simple;
 
-our $VERSION = '0.67';
+our $VERSION = '0.69';
 
 
 #CONSTANTS
@@ -32,6 +31,11 @@ sub CHECKS {
   croak(
     "You must define your CHECKS subroutine that returns your private \$_CHECKS HASHREF!"
   );
+}
+
+sub is_base_class {
+  no strict 'refs';
+  return (__PACKAGE__ ~~ @{"$_[0]\::ISA"});
 }
 
 #default where
@@ -152,7 +156,7 @@ sub SQL {
   }
 
   #a key
-  if ($args && !ref $args) {
+  elsif ($args) {
 
     #do not return hidden keys
     croak("Named query '$args' can not be used directly") if $args =~ /^_+/x;
@@ -184,8 +188,12 @@ sub dbix {
 
   # Singleton DBIx::Simple instance
   state $DBIx;
-  return ($DBIx = $_[1] ? $_[1] : $DBIx) || croak('DBIx::Simple is not instantiated');
+  return ($DBIx = $_[1] ? $_[1] : $DBIx)
+    || croak('DBIx::Simple is not instantiated. Please first do '
+      . $_[0]
+      . '->dbix(DBIx::Simple->connect($DSN,$u,$p,{...})');
 }
+
 sub dbh { $_[0]->dbix->dbh }
 
 #METHODS
@@ -226,6 +234,8 @@ sub select {
 
 sub query {
   my $class = shift;
+  local $Carp::CarpLevel = $Carp::CarpLevel + 1;
+  return $class->dbix->query(@_) if $class->is_base_class;
   $class->new_from_dbix_simple($class->dbix->query(@_));
 }
 
@@ -245,6 +255,20 @@ sub select_by_pk {
 
 sub BUILD {
   my $class = shift;
+
+  #TODO: Make DEBUG swichable per class
+  $class->dbh->{Callbacks}{prepare} = sub {
+    $DEBUG || return;
+    my ($dbh, $query, $attrs) = @_;
+    my ($package, $filename, $line, $subroutine) = caller(2);
+    carp("SQL from $subroutine in $filename:$line :\n$query\n");
+    return;
+  };
+  #
+  if ($class->is_base_class) {
+    carp "Nothing more to build. This is the base class: $class" if $DEBUG;
+    return;
+  }
   (!ref $class)
     || croak("Call this method as $class->BUILD()");
   $class->_UNQUOTED->{TABLE}   = $class->TABLE;
@@ -310,13 +334,6 @@ SUB
   if ($class->DEBUG) {
     carp($class . " generated accessors: $/$code$/$@$/");
   }
-  $dbh->{Callbacks}{prepare} = sub {
-    $DEBUG || return;
-    my ($dbh, $query, $attrs) = @_;
-    my ($package, $filename, $line, $subroutine) = caller(1);
-    carp("SQL from $subroutine in $filename:$line :\n$query\n");
-    return;
-  };
 
   #make sure we die loudly
   $dbh->{RaiseError} = 1;
@@ -359,8 +376,8 @@ sub data {
     }
   }
 
-  #a key
-  elsif ($args && (!ref $args)) {
+  #a key (!ref $args)
+  elsif (!ref $args) {
     my $alias = $self->ALIASES->{$args} || $args;
     return $self->$alias;
   }

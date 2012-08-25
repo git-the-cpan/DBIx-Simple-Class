@@ -1,11 +1,18 @@
 Changes
+examples/.htaccess
+examples/lib/My.pm
+examples/lib/My/App.pm
+examples/lib/My/Group.pm
+examples/lib/My/Groups.pm
+examples/lib/My/User.pm
+examples/users.cgi
 ignore.txt
 lib/DBIx/Simple/Class.pm
 lib/DBIx/Simple/Class.pod
 Makefile.PL
 MANIFEST			This list of files
 README
-t/00-load.t
+t/00-common.t
 t/01-dbix-simple-class-sqlite.t
 t/02-dbix-simple-class-mysql.t
 t/boilerplate.t

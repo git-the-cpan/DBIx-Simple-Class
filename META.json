@@ -22,7 +22,9 @@
    "prereqs" : {
       "build" : {
          "requires" : {
-            "DBD::SQLite" : "1.29"
+            "Cwd" : 0,
+            "DBD::SQLite" : "1.29",
+            "File::Basename" : 0
          }
       },
       "configure" : {
@@ -33,10 +35,11 @@
       "runtime" : {
          "requires" : {
             "DBIx::Simple" : "1.33",
-            "Test::More" : 0
+            "Test::More" : 0,
+            "perl" : "5.010001"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.67"
+   "version" : "0.69"
 }
