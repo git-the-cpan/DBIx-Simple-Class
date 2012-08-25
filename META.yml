@@ -23,4 +23,4 @@ requires:
   DBIx::Simple: 1.33
   Test::More: 0
   perl: 5.010001
-version: v0.69.1
+version: 0.70
