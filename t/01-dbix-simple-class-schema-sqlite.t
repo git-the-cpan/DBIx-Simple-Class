@@ -38,7 +38,7 @@ local $SIG{__WARN__} = sub {
   }
 };
 
-use_ok('DBIx::Simple::Class::Schema');
+use DBIx::Simple::Class::Schema;
 
 my $DSCS = 'DBIx::Simple::Class::Schema';
 my $dbix = DBIx::Simple->connect('dbi:SQLite:dbname=:memory:', {sqlite_unicode => 1});
@@ -139,8 +139,8 @@ unlink($INC[0] . '/Memory.pm');
 chmod 0444, $INC[0] . '/Memory/Users.pm';
 ok(!$DSCS->dump_schema_at(overwrite => 1), 'quits OK');
 chmod 0644, $INC[0] . '/Memory/Users.pm';
-File::Path::remove_tree($INC[0] . '/Memory');
-unlink($INC[0] . '/Memory.pm');
+#File::Path::remove_tree($INC[0] . '/Memory');
+#unlink($INC[0] . '/Memory.pm');
 
 #PARAMS
 delete $DSCS->_schemas->{Memory};

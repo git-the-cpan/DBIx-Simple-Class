@@ -17,7 +17,8 @@ BEGIN {
   use lib (Cwd::abs_path(dirname(__FILE__) . '/..') . '/examples/lib');
 }
 use Data::Dumper;
-use_ok('DBIx::Simple::Class::Schema');
+use DBIx::Simple::Class::Schema;
+
 
 my $DSCS = 'DBIx::Simple::Class::Schema';
 my $dbix;
