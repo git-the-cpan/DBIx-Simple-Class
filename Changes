@@ -1,5 +1,10 @@
 Revision history for DBIx::Simple::Class
 
+0.991   2012-09-07 17:30:04 EEST
+        - Fixed failing tests on windows related to chmod.
+        Thanks to Peter du Marchie van Voorthuysen.
+        
+
 0.99    2012-09-07 15:38:49 EEST
         - Added dbix method to the generated base/schema class
         so generated classes can have their
