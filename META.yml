@@ -30,4 +30,4 @@ requires:
   Params::Check: 0
   Test::More: 0
   perl: 5.010001
-version: 0.993
+version: 0.994
