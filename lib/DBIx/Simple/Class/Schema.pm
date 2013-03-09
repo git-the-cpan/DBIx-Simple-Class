@@ -3,9 +3,10 @@ use strict;
 use warnings;
 use 5.10.1;
 use Carp;
-use parent 'DBIx::Simple::Class';
 use Data::Dumper;
-our $VERSION = '0.02';
+use parent 'DBIx::Simple::Class';
+
+our $VERSION = '0.03';
 *_get_obj_args = \&DBIx::Simple::Class::_get_obj_args;
 
 #struct to keep schemas while building
@@ -34,24 +35,30 @@ sub _get_table_info {
 
 sub _get_column_info {
   my ($class, $tables) = @_;
-  foreach my $table (@$tables) {
-    $table->{column_info} =
-      $class->dbh->column_info(undef, undef, $table->{TABLE_NAME}, '%')
-      ->fetchall_arrayref({});
+  my $dbh = $class->dbh;
+  foreach my $t (@$tables) {
+    $t->{column_info} =
+      $dbh->column_info(undef, undef, $t->{TABLE_NAME}, '%')->fetchall_arrayref({});
+
+    #TODO support multi_column primary keys.see DSC::find()
+    $t->{PRIMARY_KEY} =
+      $dbh->primary_key_info(undef, undef, $t->{TABLE_NAME})->fetchall_arrayref({})->[0]
+      ->{COLUMN_NAME} || '';
+
+    #as child table
+    my $sth =
+      $dbh->foreign_key_info(undef, undef, undef, undef, undef, $t->{TABLE_NAME});
+    $t->{FOREIGN_KEYS} = $sth->fetchall_arrayref({}) if $sth;
+
   }
   return $tables;
 }
 
 #generates COLUMNS and PRIMARY_KEY
-sub _generate_PRIMARY_KEY_COLUMNS_ALIASES_CHECKS {
+sub _generate_COLUMNS_ALIASES_CHECKS {
   my ($class, $tables) = @_;
 
   foreach my $t (@$tables) {
-
-    $t->{PRIMARY_KEY} =
-      $class->dbh->primary_key_info(undef, undef, $t->{TABLE_NAME})
-      ->fetchall_arrayref({})->[0]->{COLUMN_NAME} || '';
-
     $t->{COLUMNS}           = [];
     $t->{ALIASES}           = {};
     $t->{CHECKS}            = {};
@@ -119,7 +126,7 @@ use utf8;
 use parent qw(DBIx::Simple::Class);
 
 our \$VERSION = '0.01';
-sub base_class{1}
+sub is_base_class{1}
 sub dbix {
 
   # Singleton DBIx::Simple instance
@@ -129,6 +136,7 @@ sub dbix {
       . \$_[0]
       . '->dbix(DBIx::Simple->connect(\$DSN,\$u,\$p,{...})');
 }
+
 1;
 BASE_CLASS
 
@@ -190,16 +198,16 @@ sub load_schema {
       $args->{namespace} = $2;
     }
     $args->{namespace} =~ s/\W//xg;
-    $args->{namespace} = ucfirst(lc($args->{namespace}));
+    $args->{namespace} = 'DSCS::' . ucfirst(lc($args->{namespace}));
   }
 
   my $tables = $class->_get_table_info($args);
 
-  #get table columns
+  #get table columns, PRIMARY_KEY, foreign keys
   $class->_get_column_info($tables);
 
-  #generate COLUMNS, PRIMARY_KEY, ALIASES, CHECKS
-  $class->_generate_PRIMARY_KEY_COLUMNS_ALIASES_CHECKS($tables);
+  #generate COLUMNS, ALIASES, CHECKS
+  $class->_generate_COLUMNS_ALIASES_CHECKS($tables);
 
   #generate code
   if (defined wantarray) {
@@ -230,14 +238,10 @@ sub dump_schema_at {
   @base_path = File::Spec->splitdir($args->{lib_root});
 
   $schema_path = File::Spec->catdir(@base_path, @namespace);
-  if ((-f "$schema_path.pm" || -d $schema_path) && !$args->{overwrite}) {
-    carp($schema_path . ' exists. Quitting...');
-    return;
-  }
+
   if (my $href = Module::Load::Conditional::check_install(module => $namespace)) {
-    carp( "$namespace found at $href->{file}.$/"
-        . "Please avoid namespace collisions. Quitting...");
-    return;
+    carp(
+      "$namespace found at $href->{file}.$/" . "Please avoid namespace collisions...");
   }
   carp('Will dump schema at ' . $args->{lib_root});
 
@@ -248,19 +252,22 @@ sub dump_schema_at {
     eval { File::Path::make_path($schema_path); }
       || carp("Can not make path $schema_path.$/$!. Quitting...") && return;
   }
-  my $base_fh = IO::File->new("> $schema_path.pm");
-  if (defined $base_fh) {
+
+  if ((!$args->{overwrite} && !-f "$schema_path.pm") || $args->{overwrite}) {
+    carp("Overwriting $schema_path.pm...") if $args->{overwrite} && $class->DEBUG;
+    my $base_fh = IO::File->new("> $schema_path.pm")
+      || croak("Could not open $schema_path.pm for writing" . $!);
     print $base_fh $code->[0];
     $base_fh->close;
   }
-  else {
-    carp("$schema_path.pm: $!. Quitting...");
-    return;
-  }
 
   foreach my $i (0 .. @$tables - 1) {
-    my $filename = ucfirst(lc($tables->[$i]{TABLE_NAME})) . '.pm';
-    my $fh       = IO::File->new("> $schema_path/$filename");
+    my $filename =
+      (join '', map { ucfirst lc } split /_/, $tables->[$i]{TABLE_NAME}) . '.pm';
+    next if (-f "$schema_path/$filename" && !$args->{overwrite});
+    carp("Overwriting $schema_path/$filename...")
+      if $args->{overwrite} && $class->DEBUG;
+    my $fh = IO::File->new("> $schema_path/$filename");
     if (defined $fh) {
       print $fh $code->[$i + 1];
       $fh->close;
@@ -324,7 +331,7 @@ Class method.
 
   Params:
     namespace - String. The class name for your base class,
-      default: ucfirst(lc($databse))
+      default: 'DSCS::'.ucfirst(lc($database))
     table - SQL string for a LIKE clause,
       default: '%'
     type - SQL String for an IN clause.
@@ -342,9 +349,16 @@ This makes it very convenient for quickly prototyping applications
 by just modifying tables in your database.
 
   my $perl_code = DBIx::Simple::Class::Schema->load_schema();
+  #concatenaded code as one string
   eval $perl_code || croak($@);
-  @...
+  #...
   my $user = Dbname::User->find(2345);
+  
+  #or My::Schema, My::Schema::Table1, My::Schema::Table2,...
+  my @perl_code = DBIx::Simple::Class::Schema->load_schema();
+  
+  #or just prepare code before dumping it to disk.
+  DBIx::Simple::Class::Schema->load_schema();
 
 =head2 dump_schema_at
 

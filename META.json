@@ -35,7 +35,7 @@
       "runtime" : {
          "requires" : {
             "Carp" : 0,
-            "DBIx::Simple" : "1.33",
+            "DBIx::Simple" : "1.35",
             "Data::Dumper" : 0,
             "File::Path" : "2.07",
             "File::Spec" : 0,
@@ -48,5 +48,5 @@
       }
    },
    "release_status" : "stable",
-   "version" : "0.991"
+   "version" : "0.993"
 }

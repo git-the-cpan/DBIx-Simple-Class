@@ -1,16 +1,27 @@
 Revision history for DBIx::Simple::Class
 
+0.993   2013-03-09 19:30:20 EET
+        - Added method DBIx::Simple::Class::create().
+        - Enhanced tests.
+        - Enhanced DBIx::Simple::Class::Schema::dump_schema_at().
+        - Perltidyed.
+
+0.992   2012-09-12 23:03:46 EEST
+        - Fixed typos in documentation
+        - Fixed unnoticeable bug in the generated Schema Class
+        - Slight improvements in documentation
+        - Prefixed default namespace with 'DSCS::'
+        to reduce possible namespace collision.
+
 0.991   2012-09-07 17:30:04 EEST
         - Fixed failing tests on windows related to chmod.
         Thanks to Peter du Marchie van Voorthuysen.
-        
 
 0.99    2012-09-07 15:38:49 EEST
         - Added dbix method to the generated base/schema class
         so generated classes can have their
         own connection per schema class.
         - Fixed failing tests.
-
 
 0.98    2012-09-07 01:03:34 EEST
         - Created DBIx::Simple::Class::Schema.

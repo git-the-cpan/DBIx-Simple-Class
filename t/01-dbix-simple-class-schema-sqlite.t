@@ -27,7 +27,8 @@ local $SIG{__WARN__} = sub {
     $_[0] =~ /(Will\sdump\sschema\sat
          |exists
          |avoid\snamespace\scollisions
-         |\w+\.pm|make\spath)/x
+         |\w+\.pm|make\spath
+         |Overwriting)/x
     )
   {
     my ($package, $filename, $line, $subroutine) = caller(2);
@@ -45,6 +46,16 @@ my $dbix = DBIx::Simple->connect('dbi:SQLite:dbname=:memory:', {sqlite_unicode =
 isa_ok(ref($DSCS->dbix($dbix)), 'DBIx::Simple');
 can_ok($DSCS, qw(load_schema dump_schema_at));
 
+
+$dbix->query(<<'TAB');
+CREATE TABLE groups(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_name VARCHAR(12),
+  "is blocked" INT,
+  data TEXT
+  )
+TAB
+
 #=pod
 #create some tables
 $dbix->query(<<'TAB');
@@ -58,21 +69,13 @@ CREATE TABLE IF NOT EXISTS users (
   disabled tinyint(1) NOT NULL DEFAULT '0',
   balance DECIMAL(8,2) NOT NULL DEFAULT '0.00',
   UNIQUE(login_name) ON CONFLICT ROLLBACK,
-  UNIQUE(email) ON CONFLICT ROLLBACK
+  UNIQUE(email) ON CONFLICT ROLLBACK,
+  FOREIGN KEY(group_id) REFERENCES groups(id)
 
 )
 TAB
 
 #=cut
-
-$dbix->query(<<'TAB');
-CREATE TABLE groups(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  group_name VARCHAR(12),
-  "is blocked" INT,
-  data TEXT
-  )
-TAB
 
 #BARE DEFAULTS
 like(
@@ -81,20 +84,25 @@ like(
   'dump_schema_at() croaks OK'
 );
 require File::Path;
-File::Path::remove_tree($INC[0] . '/Memory');
-unlink($INC[0] . '/Memory.pm');
+File::Path::remove_tree($INC[0] . '/DSCS/Memory');
+unlink($INC[0] . '/DSCS/Memory.pm');
 File::Path::remove_tree($INC[0] . '/Your');
 
 ok(my $code = $DSCS->load_schema(), 'scalar context OK');
 ok(my @code = $DSCS->load_schema(), 'list context OK');
-my $tables = $DSCS->_schemas('Memory')->{tables};
+
+my $tables = $DSCS->_schemas('DSCS::Memory')->{tables};
+
+#warn Dumper($tables);
+
 ok((grep { $_->{TABLE_NAME} eq 'users' || $_->{TABLE_NAME} eq 'groups' } @$tables),
   '_get_table_info works');
-my @column_infos = (
-  @{$tables->[0]->{column_info}},
-  @{$tables->[1]->{column_info}},
-  @{$tables->[2]->{column_info}}
-);
+my @column_infos;
+foreach (@$tables) {
+  push @column_infos, @{$_->{column_info}};
+}
+
+#we have two columns named "id"
 is((grep { $_->{COLUMN_NAME} eq 'id' } @column_infos), 2, '_get_column_info works');
 my %alaiases =
   (%{$tables->[0]->{ALIASES}}, %{$tables->[1]->{ALIASES}}, %{$tables->[2]->{ALIASES}});
@@ -125,26 +133,29 @@ unlike('1234567.2', $checks{balance}->{allow},     'checks DECIMAL(8,2) works fi
 unlike('a',         qr/$checks{balance}->{allow}/, 'checks DECIMAL(8,2) works fine');
 ok((eval {$code}), 'code generated ok') or diag($@);
 ok($DSCS->dump_schema_at(), 'dump_schema_at dumps code to files OK');
-use_ok('Memory::Groups');
-use_ok('Memory::Users');
+use_ok('DSCS::Memory::Groups');
+use_ok('DSCS::Memory::Users');
 
 #END BARE DEFAULTS
 #Now we should have some files to remove
-ok(!$DSCS->dump_schema_at(), 'quits OK');
-unlink($INC[0] . '/Memory.pm');
-ok(!$DSCS->dump_schema_at(), 'quits OK');
+ok($DSCS->dump_schema_at(), 'does not quit OK');
+unlink($INC[0] . '/DSCS/Memory.pm');
+
+ok($DSCS->dump_schema_at(), 'does not quit OK');
+$DSCS->DEBUG(1);
+unlink($INC[0] . '/DSCS/Memory.pm');
+unlink($INC[0] . '/DSCS/Memory/SqliteSequence.pm');
 ok($DSCS->dump_schema_at(overwrite => 1), 'overwrites OK');
-ok(!$DSCS->dump_schema_at(overwrite => 1), 'quits OK');
-unlink($INC[0] . '/Memory.pm');
+$DSCS->DEBUG(0);
 SKIP: {
   skip "I have only linux, see http://perldoc.perl.org/perlport.html#chmod", 1,
     if $^O !~ /linux/i;
-  chmod 0444, $INC[0] . '/Memory/Users.pm';
+  chmod 0444, $INC[0] . '/DSCS/Memory/Users.pm';
   ok(!$DSCS->dump_schema_at(overwrite => 1), 'quits OK');
-  chmod 0644, $INC[0] . '/Memory/Users.pm';
+  chmod 0644, $INC[0] . '/DSCS/Memory/Users.pm';
 }
-File::Path::remove_tree($INC[0] . '/Memory');
-unlink($INC[0] . '/Memory.pm');
+File::Path::remove_tree($INC[0] . '/DSCS/Memory');
+unlink($INC[0] . '/DSCS/Memory.pm');
 
 #PARAMS
 delete $DSCS->_schemas->{Memory};
@@ -153,7 +164,6 @@ $DSCS->load_schema(namespace => 'Your::Model', table => '%user%', type => "'TABL
 isa_ok($DSCS->_schemas('Your::Model'),
   'HASH', 'load_schema creates Your::Model namespace OK');
 
-#warn Dumper($DSCS->_schemas('Your::Model')->{tables});
 is($DSCS->_schemas('Your::Model')->{tables}[0]->{TABLE_NAME},
   'users', 'first table is "users"');
 is(scalar @{$DSCS->_schemas('Your::Model')->{tables}}, 1, 'the only table is "users"');
