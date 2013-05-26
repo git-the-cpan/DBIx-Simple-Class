@@ -41,7 +41,6 @@
             "File::Path" : "2.07",
             "File::Spec" : "0",
             "IO::File" : "0",
-            "Module::Load::Conditional" : "0",
             "Params::Check" : "0",
             "Test::More" : "0",
             "perl" : "5.010001"
@@ -60,5 +59,5 @@
          "url" : "https://github.com/kberov/DBIx--Simple--Class"
       }
    },
-   "version" : "0.996"
+   "version" : "0.998"
 }
