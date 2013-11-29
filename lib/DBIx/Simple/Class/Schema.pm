@@ -6,7 +6,6 @@ use Carp;
 use Data::Dumper;
 use parent 'DBIx::Simple::Class';
 
-our $VERSION = '0.03';
 *_get_obj_args = \&DBIx::Simple::Class::_get_obj_args;
 
 #struct to keep schemas while building
@@ -126,7 +125,7 @@ use utf8;
 use parent qw(DBIx::Simple::Class);
 
 our \$VERSION = '0.01';
-sub is_base_class{1}
+sub is_base_class{return 1}
 sub dbix {
 
   # Singleton DBIx::Simple instance
@@ -165,16 +164,16 @@ use warnings;
 use utf8;
 use parent qw($namespace);
 | . qq|
-sub base_class{0}
+sub is_base_class{return 0}
 my $TABLE
-sub TABLE { \$TABLE_NAME }| . qq|
-sub PRIMARY_KEY{'$t->{PRIMARY_KEY}'}
+sub TABLE {return \$TABLE_NAME}| . qq|
+sub PRIMARY_KEY{return '$t->{PRIMARY_KEY}'}
 my $COLUMNS
-sub COLUMNS { \$COLUMNS }
+sub COLUMNS {return \$COLUMNS}
 my $ALIASES
-sub ALIASES { \$ALIASES }
+sub ALIASES {return \$ALIASES}
 my $CHECKS
-sub CHECKS { \$CHECKS }
+sub CHECKS {return \$CHECKS}
 
 __PACKAGE__->QUOTE_IDENTIFIERS($t->{QUOTE_IDENTIFIERS});
 #__PACKAGE__->BUILD;#build accessors during load

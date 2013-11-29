@@ -10,8 +10,8 @@ use Test::More;
 BEGIN {
   eval { require DBD::SQLite; 1 }
     or plan skip_all => 'DBD::SQLite required';
-  eval { DBD::SQLite->VERSION >= 1 }
-    or plan skip_all => 'DBD::SQLite >= 1.00 required';
+  eval { DBD::SQLite->VERSION gt '1.37' }
+    or plan skip_all => 'DBD::SQLite >= 1.37 required';
   use File::Basename 'dirname';
   use Cwd;
   use lib (Cwd::abs_path(dirname(__FILE__) . '/..') . '/examples/lib');
@@ -69,7 +69,7 @@ T
 
 $dbix->query($users_table);
 
-#$DSC->DEBUG(1);
+$DSC->DEBUG(1);
 isa_ok(ref(My->dbix($dbix)), 'DBIx::Simple');
 is(My->dbix, $DSC->dbix, 'same instance');
 ok(!My->BUILD(), 'nothing to build');

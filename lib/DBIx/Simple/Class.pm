@@ -6,7 +6,7 @@ use Carp;
 use Params::Check;
 use DBIx::Simple;
 
-our $VERSION = '0.999';
+our $VERSION = '1.000';
 
 
 #CONSTANTS
@@ -289,17 +289,32 @@ sub BUILD {
         . '. Please define an \'alias\' for the column to be used as method.')
       if __PACKAGE__->can($alias);
     next if $class->can($alias);                          #careful: no redefine
-    $code = "use strict;$/use warnings;$/use utf8;$/" unless $code;
+    $code = "package $class; use strict;$/use warnings;$/use utf8;$/" unless $code;
     $code .= <<"SUB";
-sub $class\::$alias {
-  my (\$self,\$value) = \@_;
-  if(defined \$value){ #setting value
-  \$self->{data}{qq{$_}} = \$self->_check(qq{$_}=>\$value);
+sub $alias {
+  my (\$s,\$v) = \@_;
+  if(defined \$v){ #setting value
+    #Not using Params::Check
+    my \$allow = (\$s->CHECKS->{qq{$_}}?\$s->CHECKS->{qq{$_}}{allow}:'')||'';
+    if(ref \$allow eq 'CODE'){
+     \$s->{data}{qq{$_}} = \$allow->(\$v) ? \$v : Carp::croak("$_ is of invalid type");
+    }
+    elsif(ref \$allow eq 'Regexp'){
+      \$s->{data}{qq{$_}} = 
+        \$v =~ \$allow ? \$v : Carp::croak("$_ is of invalid type");
+    }
+    elsif(\$allow && !ref \$allow){
+      \$s->{data}{qq{$_}} = 
+        \$v eq \$allow ? \$v : Carp::croak("$_ is of invalid type");
+    }
+    else{
+      \$s->{data}{qq{$_}} = \$v;
+    }
+    #\$s->_check(qq{$_}=>\$v);#Using Params::Check
     #make it chainable
-    return \$self;
+    return \$s;
   }
-  \$self->{data}{qq{$_}}
-  //= \$self->CHECKS->{qq{$_}}{default}; #getting value
+  return \$s->{data}{qq{$_}} //= \$s->CHECKS->{qq{$_}}{default}; #getting value
 }
 
 SUB
