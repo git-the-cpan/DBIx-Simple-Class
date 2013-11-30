@@ -1,12 +1,12 @@
 package DBIx::Simple::Class;
-use 5.10.1;
+use 5.010001;
 use strict;
 use warnings;
 use Carp;
 use Params::Check;
 use DBIx::Simple;
 
-our $VERSION = '1.000';
+our $VERSION = '1.001';
 
 
 #CONSTANTS

@@ -69,7 +69,7 @@ T
 
 $dbix->query($users_table);
 
-$DSC->DEBUG(1);
+#$DSC->DEBUG(1);
 isa_ok(ref(My->dbix($dbix)), 'DBIx::Simple');
 is(My->dbix, $DSC->dbix, 'same instance');
 ok(!My->BUILD(), 'nothing to build');
