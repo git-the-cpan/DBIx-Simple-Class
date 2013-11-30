@@ -1,5 +1,8 @@
 Revision history for DBIx::Simple::Class
 
+1.002 2013-12-01 00:38:33 CET
+        - Calling explicitely Carp::croak().
+
 1.001 2013-11-30 10:41:15 CET
         - Using a real number for perl versions.
 
