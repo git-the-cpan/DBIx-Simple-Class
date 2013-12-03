@@ -6,6 +6,9 @@ use Carp;
 use Data::Dumper;
 use parent 'DBIx::Simple::Class';
 
+our $VERSION = '004';
+
+
 *_get_obj_args = \&DBIx::Simple::Class::_get_obj_args;
 
 #struct to keep schemas while building
@@ -224,13 +227,10 @@ sub load_schema {
   $class->_generate_COLUMNS_ALIASES_CHECKS($tables);
 
   #generate code
-  if (defined wantarray) {
-    return $class->_generate_CODE($args);
+  if (wantarray) {
+    return ($class->_generate_CODE($args));
   }
-  else {
-    $class->_generate_CODE($args);
-  }
-  return;
+  return $class->_generate_CODE($args);
 }
 
 
@@ -305,7 +305,7 @@ DBIx::Simple::Class::Schema - Create and use classes representing tables from a 
 
 =head1 SYNOPSIS
 
-  #Somewhere in a utility script or startup() fo your application.
+  #Somewhere in a utility script or startup() of your application.
   DBIx::Simple::Class::Schema->dbix(DBIx::Simple->connect(...));
   my $perl_code = DBIx::Simple::Class::Schema->load_schema(
     namespace =>'My::Model',
