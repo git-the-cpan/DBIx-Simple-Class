@@ -34,4 +34,4 @@ resources:
   bugtracker: https://github.com/kberov/DBIx--Simple--Class/issues
   license: http://www.opensource.org/licenses/artistic-license-2.0
   repository: https://github.com/kberov/DBIx--Simple--Class
-version: '1.007'
+version: '1.008'
