@@ -6,7 +6,7 @@ use Carp;
 use Params::Check;
 use DBIx::Simple;
 
-our $VERSION = '1.008';
+our $VERSION = '1.009';
 
 
 #CONSTANTS
@@ -140,14 +140,15 @@ $SQL = {
 #works for MySQL, SQLite, PostgreSQL
 #TODO:See SQL::Abstract::Limit for other implementations
 #and implement it using this technique.
-    " LIMIT $_[1]" . ($_[2] ? " OFFSET $_[2] " : '');
+croak('SQL LIMIT requires at least one integer parameter or placeholder')
+  unless defined($_[1]);
+  return " LIMIT $_[1]" . (defined($_[2]) ? " OFFSET $_[2] " : '');
   },
 };
 
 # generate(d) limit clause
 sub SQL_LIMIT {
-  my $_LIMIT = $SQL->{_LIMIT};
-  return $_LIMIT->(@_);
+  return $SQL->{_LIMIT}->(@_);
 }
 
 sub SQL {
